@@ -22,8 +22,6 @@ export default function Matches() {
     fetch(`/api/get-request?recordId=${recordId}`)
       .then((res) => res.json())
       .then((data) => {
-        console.log("📥 Inspector match response:", data);
-
         if (!data || typeof data !== "object" || !data.inspector || !data.id) {
           console.warn("⚠️ Invalid inspector data received.");
           setMatches([]);
@@ -67,7 +65,7 @@ export default function Matches() {
       {matches === null ? (
         <p className="text-blue-200">Loading...</p>
       ) : matches.length === 0 ? (
-        <p className="text-blue-200">No inspector assigned yet.</p>
+        <p className="text-blue-200">No inspector assigned yet. Please try again later.</p>
       ) : (
         <ul className="space-y-4 w-full max-w-md mb-8">
           {matches.map((m, idx) => (
@@ -100,6 +98,7 @@ export default function Matches() {
               checked={tier === label}
               onChange={(e) => setTier(e.target.value)}
               className="mt-1"
+              aria-label={`Select ${label} tier`}
             />
             <div>
               <p className="font-semibold">{label}</p>

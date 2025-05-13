@@ -4,6 +4,8 @@ export default function FreelancerDashboard() {
   const [assigned, setAssigned] = useState([]);
   const [accepted, setAccepted] = useState([]);
   const [email, setEmail] = useState(null);
+  const [reportNotes, setReportNotes] = useState("");
+  const [reportRecordId, setReportRecordId] = useState(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -25,7 +27,7 @@ export default function FreelancerDashboard() {
         );
         const data = await res.json();
 
-        console.log("Fetched jobs for freelancer:", data); // ✅ Debug output
+        console.log("Fetched jobs for freelancer:", data);
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API response:", data);
@@ -84,6 +86,38 @@ export default function FreelancerDashboard() {
     } catch (err) {
       console.error("Decline failed:", err);
       alert("Unexpected error declining job.");
+    }
+  };
+
+  const submitReport = async (recordId) => {
+    if (!reportNotes.trim()) {
+      alert("Please enter some notes.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/freelancer/submit-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recordId,
+          notes: reportNotes,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("Report submitted!");
+        setReportNotes("");
+        setReportRecordId(null);
+        window.location.reload();
+      } else {
+        console.error("Submit error:", result);
+        alert("Failed to submit report.");
+      }
+    } catch (err) {
+      console.error("Submit failed:", err);
+      alert("Unexpected error submitting report.");
     }
   };
 
@@ -153,6 +187,25 @@ export default function FreelancerDashboard() {
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
                 <p><strong>Status:</strong> Accepted</p>
                 <p><strong>Tier:</strong> {r.fields["Tier Selected"]}</p>
+
+                <div className="mt-4 space-y-2">
+                  <textarea
+                    rows="4"
+                    placeholder="Write your inspection notes..."
+                    className="w-full border p-2 rounded"
+                    value={reportRecordId === r.id ? reportNotes : ""}
+                    onChange={(e) => {
+                      setReportRecordId(r.id);
+                      setReportNotes(e.target.value);
+                    }}
+                  />
+                  <button
+                    onClick={() => submitReport(r.id)}
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                  >
+                    Submit Report
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

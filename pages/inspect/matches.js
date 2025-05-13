@@ -12,6 +12,7 @@ export default function Matches() {
     if (!router.isReady) return;
 
     const { recordId, zip } = router.query;
+
     if (!recordId || !zip) {
       console.warn("⚠️ Missing recordId or zip in query params");
       setMatches([]);
@@ -46,11 +47,14 @@ export default function Matches() {
       return;
     }
 
+    const { recordId } = router.query;
+
     router.push({
       pathname: "/inspect/payment",
       query: {
         inspectorId: selectedInspector.id,
         tier,
+        recordId,
       },
     });
   };

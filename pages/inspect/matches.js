@@ -19,27 +19,22 @@ export default function Matches() {
       return;
     }
 
-    fetch(`/api/get-request?recordId=${recordId}`)
+    fetch("/api/match-zip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recordId, buyerZip: zip }),
+    })
       .then((res) => res.json())
       .then((data) => {
-        if (!data || typeof data !== "object" || !data.inspector || !data.id) {
-          console.warn("⚠️ Invalid inspector data received.");
+        if (!data.matches || !Array.isArray(data.matches)) {
+          console.warn("⚠️ No valid matches found.");
           setMatches([]);
           return;
         }
-
-        setMatches([
-          {
-            name: data.inspector.Name,
-            email: data.inspector.Email,
-            zip: data.inspector.ZIP || "N/A",
-            distance: 0,
-            id: data.id,
-          },
-        ]);
+        setMatches(data.matches);
       })
       .catch((err) => {
-        console.error("❌ Error fetching inspector:", err);
+        console.error("❌ Error fetching matches:", err);
         setMatches([]);
       });
   }, []);
@@ -59,13 +54,13 @@ export default function Matches() {
 
   return (
     <div className="min-h-screen px-4 py-16 bg-blue-900 text-white flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-4">Assigned Inspector</h1>
-      <p className="mb-6 text-lg text-blue-100">Match for ZIP: {buyerZip}</p>
+      <h1 className="text-3xl font-bold mb-4">Choose Your Inspector</h1>
+      <p className="mb-6 text-lg text-blue-100">Matches for Listing ZIP: {buyerZip}</p>
 
       {matches === null ? (
         <p className="text-blue-200">Loading...</p>
       ) : matches.length === 0 ? (
-        <p className="text-blue-200">No inspector assigned yet. Please try again later.</p>
+        <p className="text-blue-200">No available inspectors at this time.</p>
       ) : (
         <ul className="space-y-4 w-full max-w-md mb-8">
           {matches.map((m, idx) => (
@@ -79,8 +74,9 @@ export default function Matches() {
               onClick={() => setSelectedInspector(m)}
             >
               <p className="font-semibold">{m.name}</p>
-              <p className="text-sm">ZIP: {m.zip}</p>
-              <p className="text-sm text-gray-600">{m.email}</p>
+              <p className="text-sm text-gray-800">Email: {m.email}</p>
+              <p className="text-sm text-gray-600">ZIP: {m.zip}</p>
+              <p className="text-sm text-gray-600">Distance: {m.distance} mi</p>
             </li>
           ))}
         </ul>

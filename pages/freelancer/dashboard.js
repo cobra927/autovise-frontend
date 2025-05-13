@@ -20,8 +20,12 @@ export default function FreelancerDashboard() {
 
     async function fetchJobs() {
       try {
-        const res = await fetch(`/api/get-buyer-requests?email=${email}`);
+        const res = await fetch(
+          `/api/get-inspection-requests?email=${email}&role=freelancer`
+        );
         const data = await res.json();
+
+        console.log("Fetched jobs for freelancer:", data); // ✅ Debug output
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API response:", data);
@@ -31,18 +35,10 @@ export default function FreelancerDashboard() {
         setAssigned(
           data.filter(
             (r) =>
-              r.fields["Inspector Assigned"]?.toLowerCase() === email &&
-              r.fields["Status"] === "Matched"
+              r.fields["Status"] === "Matched" || r.fields["Status"] === "Paid"
           )
         );
-
-        setAccepted(
-          data.filter(
-            (r) =>
-              r.fields["Inspector Assigned"]?.toLowerCase() === email &&
-              r.fields["Status"] === "Accepted"
-          )
-        );
+        setAccepted(data.filter((r) => r.fields["Status"] === "Accepted"));
       } catch (err) {
         console.error("Failed to load requests:", err);
       }
@@ -93,7 +89,28 @@ export default function FreelancerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 p-8">
-      <h1 className="text-3xl font-bold mb-6">Inspector Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-4">Freelancer Dashboard</h1>
+
+      {email && (
+        <div className="mb-6 text-sm text-gray-600">
+          Logged in as: <span className="font-mono text-blue-700">{email}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="text-4xl font-bold text-blue-800">{assigned.length}</p>
+          <p className="text-sm mt-1 text-gray-600">New Assignments</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="text-4xl font-bold text-green-700">{accepted.length}</p>
+          <p className="text-sm mt-1 text-gray-600">Accepted Jobs</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="text-4xl font-bold text-gray-500">—</p>
+          <p className="text-sm mt-1 text-gray-600">Completed Jobs</p>
+        </div>
+      </div>
 
       <section className="mb-8">
         <h2 className="text-xl font-semibold mb-2">📬 New Inspection Requests</h2>
@@ -103,6 +120,7 @@ export default function FreelancerDashboard() {
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
                 <p><strong>ZIP:</strong> {r.fields["ZIP"]}</p>
+                <p><strong>Status:</strong> {r.fields["Status"]}</p>
                 <p><strong>Tier:</strong> {r.fields["Tier Selected"]}</p>
                 <div className="flex space-x-4 mt-3">
                   <button

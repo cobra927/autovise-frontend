@@ -97,7 +97,7 @@ export default function InspectPage() {
         </div>
 
         <div>
-          <label className="block font-medium mb-1">ZIP Code</label>
+          <label className="block font-medium mb-1">Listing ZIP Code</label>
           <input
             name="zip"
             value={formData.zip}

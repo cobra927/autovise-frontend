@@ -2,39 +2,60 @@ const BASE_ID = "appecuuGb7DHkki1s";
 const API_KEY = process.env.AIRTABLE_INSPECTION_KEY;
 
 export default async function handler(req, res) {
-  const { recordId } = req.query;
-  if (!recordId) return res.status(400).json({ error: "Missing recordId" });
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: "Missing email" });
 
   try {
-    // Fetch the inspection request by ID
-    const reqRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/All%20Requests/${recordId}`, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-      },
-    });
+    // Fetch all inspection requests with linked fields
+    const result = await fetch(
+      `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?view=Grid%20view`,
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+        },
+      }
+    );
 
-    const requestData = await reqRes.json();
+    const data = await result.json();
 
-    const inspectorRef = requestData.fields["Inspector Assigned"]?.[0];
-    if (!inspectorRef) {
-      return res.status(200).json({ inspector: null });
+    if (!data.records) {
+      return res.status(200).json([]);
     }
 
-    // Fetch the inspector's full record from "All users"
-    const inspectorRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/All%20users/${inspectorRef}`, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-      },
+    // Pull out inspector IDs
+    const inspectorIds = data.records
+      .map((r) => r.fields["Inspector Assigned"]?.[0])
+      .filter(Boolean);
+
+    const uniqueInspectorIds = [...new Set(inspectorIds)];
+
+    // Batch fetch all linked inspectors
+    const inspectorMap = {};
+    for (const id of uniqueInspectorIds) {
+      const inspectorRes = await fetch(
+        `https://api.airtable.com/v0/${BASE_ID}/Freelancers/${id}`,
+        {
+          headers: { Authorization: `Bearer ${API_KEY}` },
+        }
+      );
+      const inspectorData = await inspectorRes.json();
+      if (inspectorData?.fields?.Email) {
+        inspectorMap[id] = inspectorData.fields.Email;
+      }
+    }
+
+    // Attach resolved emails
+    const enriched = data.records.map((r) => {
+      const inspectorId = r.fields["Inspector Assigned"]?.[0];
+      return {
+        ...r,
+        inspectorEmail: inspectorMap[inspectorId] || null,
+      };
     });
 
-    const inspectorData = await inspectorRes.json();
-
-    res.status(200).json({
-      inspector: inspectorData.fields,
-      id: inspectorData.id,
-    });
+    return res.status(200).json(enriched);
   } catch (err) {
-    console.error("❌ get-request error:", err);
-    res.status(500).json({ error: "Failed to fetch inspection or inspector" });
+    console.error("❌ get-buyer-requests error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 }

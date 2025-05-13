@@ -1,4 +1,5 @@
 // pages/api/signup.js
+import bcrypt from "bcrypt";
 
 const AIRTABLE_BASE_ID = "appxHCXtQtKJOUvnR";
 const AIRTABLE_TABLE = "All users";
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
         fields: {
           Name: name,
           Email: email,
-          Password: password,
+          Password: await bcrypt.hash(password, 10),
           Role: role,
         },
       }),

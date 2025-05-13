@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 
 export default function InspectPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -9,6 +11,16 @@ export default function InspectPage() {
   });
 
   useEffect(() => {
+    const role = localStorage.getItem("role");
+
+    if (role === "freelancer") {
+      router.replace("/wrong-role");
+      return;
+    } else if (role !== "buyer") {
+      router.replace("/login");
+      return;
+    }
+
     const saved = {
       name: localStorage.getItem("buyerName") || "",
       email: localStorage.getItem("buyerEmail") || "",
@@ -16,7 +28,7 @@ export default function InspectPage() {
       listing: localStorage.getItem("listingURL") || "",
     };
     setFormData(saved);
-  }, []);
+  }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -57,7 +69,7 @@ export default function InspectPage() {
     });
 
     if (matchRes.ok) {
-      window.location.href = `/inspect/matches?zip=${formData.zip}`;
+      router.push(`/inspect/matches?zip=${formData.zip}`);
     } else {
       alert("ZIP matching failed.");
     }

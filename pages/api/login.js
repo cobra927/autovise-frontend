@@ -1,4 +1,5 @@
 import Airtable from "airtable";
+import bcrypt from "bcrypt";
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_FREELANCER_KEY }).base("appxHCXtQtKJOUvnR");
 
@@ -26,8 +27,9 @@ export default async function handler(req, res) {
     }
 
     const user = records[0].fields;
+    const passwordMatch = await bcrypt.compare(password, user.Password);
 
-    if (user.Password !== password) {
+    if (!passwordMatch) {
       return res.status(401).json({ error: "Incorrect password" });
     }
 

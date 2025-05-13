@@ -37,9 +37,9 @@ export default function FreelancerSetup() {
       });
 
       if (res.ok) {
-        alert("Setup complete.");
         localStorage.removeItem("freelancerName");
         localStorage.removeItem("freelancerEmail");
+        window.location.href = "/";
       } else {
         const { error } = await res.json();
         alert("Submission failed: " + error);

@@ -1,14 +1,26 @@
+import jwt from "jsonwebtoken";
+
 const BASE_ID = "appecuuGb7DHkki1s";
 const API_KEY = process.env.AIRTABLE_INSPECTION_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: "Missing email" });
+  const token = req.cookies?.autoviseToken;
+
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   try {
-    // Step 1: Lookup freelancer by email in "Freelancers" table
+    const user = jwt.verify(token, JWT_SECRET);
+
+    if (user.role !== "freelancer") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const email = user.email.toLowerCase();
+
+    // Step 1: Lookup freelancer by email
     const freelancerRes = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/Freelancers?filterByFormula=LOWER({Email})='${email.toLowerCase()}'`,
+      `https://api.airtable.com/v0/${BASE_ID}/Freelancers?filterByFormula=LOWER({Email})='${email}'`,
       {
         headers: { Authorization: `Bearer ${API_KEY}` },
       }
@@ -26,7 +38,7 @@ export default async function handler(req, res) {
       return res.status(200).json([]);
     }
 
-    // Step 2: Hydrate linked All Requests
+    // Step 2: Hydrate All Requests
     const fullRequests = [];
     for (const id of requestIds) {
       const reqRes = await fetch(
@@ -44,7 +56,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(fullRequests);
   } catch (err) {
-    console.error("❌ get-freelancer-dashboard error:", err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("❌ get-freelancer-dashboard error:", err.message);
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 }

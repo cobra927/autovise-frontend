@@ -13,10 +13,11 @@ export default function WrongRolePage() {
           To proceed, please create a buyer account instead.
         </p>
 
-        <Link href="/signup">
-          <a className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-            Sign Up as a Buyer
-          </a>
+        <Link 
+          href="/signup" 
+          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+        >
+          Sign Up as a Buyer
         </Link>
       </div>
     </div>

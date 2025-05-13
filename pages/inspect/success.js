@@ -6,6 +6,8 @@ export default function SuccessPage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
+    if (!router.isReady) return;
+
     const { recordId, tier, inspectorId } = router.query;
 
     if (!recordId || !tier || !inspectorId || submitted) return;
@@ -25,15 +27,11 @@ export default function SuccessPage() {
       .then((data) => {
         console.log("✅ Payment marked in Airtable:", data);
         setSubmitted(true);
-        localStorage.removeItem("selectedTier");
-        localStorage.removeItem("selectedInspector");
-        localStorage.removeItem("selectedInspectorId");
-        localStorage.removeItem("recordId");
       })
       .catch((err) => {
         console.error("❌ Error marking payment:", err);
       });
-  }, [router.query, submitted]);
+  }, [router.isReady, router.query, submitted]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center text-center p-8">

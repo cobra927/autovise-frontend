@@ -9,15 +9,16 @@ export default function Matches() {
   const [tier, setTier] = useState("");
 
   useEffect(() => {
-    const recordId = localStorage.getItem("recordId");
-    const zip = localStorage.getItem("buyerZip");
-    setBuyerZip(zip || "");
+    if (!router.isReady) return;
 
-    if (!recordId) {
-      console.warn("⚠️ No recordId found in localStorage");
+    const { recordId, zip } = router.query;
+    if (!recordId || !zip) {
+      console.warn("⚠️ Missing recordId or zip in query params");
       setMatches([]);
       return;
     }
+
+    setBuyerZip(zip);
 
     fetch("/api/match-zip", {
       method: "POST",
@@ -37,7 +38,7 @@ export default function Matches() {
         console.error("❌ Error fetching matches:", err);
         setMatches([]);
       });
-  }, []);
+  }, [router.isReady, router.query]);
 
   const handleContinue = () => {
     if (!selectedInspector || !tier) {
@@ -45,11 +46,13 @@ export default function Matches() {
       return;
     }
 
-    localStorage.setItem("selectedInspector", JSON.stringify(selectedInspector));
-    localStorage.setItem("selectedInspectorId", selectedInspector.id);
-    localStorage.setItem("selectedTier", tier);
-
-    router.push("/inspect/payment");
+    router.push({
+      pathname: "/inspect/payment",
+      query: {
+        inspectorId: selectedInspector.id,
+        tier,
+      },
+    });
   };
 
   return (

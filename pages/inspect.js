@@ -11,29 +11,36 @@ export default function InspectPage() {
   });
 
   useEffect(() => {
-    const role = localStorage.getItem("role");
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/me");
+        const data = await res.json();
 
-    if (role === "freelancer") {
-      router.replace("/wrong-role");
-      return;
-    } else if (role !== "buyer") {
-      router.replace("/login");
-      return;
+        if (!data.success) throw new Error("Not authenticated");
+
+        const { role, email } = data.user;
+        if (role !== "buyer") {
+          router.replace("/wrong-role");
+          return;
+        }
+
+        // Optionally preload name/email if you have them stored in Airtable
+        setFormData((prev) => ({
+          ...prev,
+          email,
+          name: "", // preload with Airtable name if stored and available
+        }));
+      } catch {
+        router.replace("/login");
+      }
     }
 
-    const saved = {
-      name: localStorage.getItem("buyerName") || "",
-      email: localStorage.getItem("buyerEmail") || "",
-      zip: localStorage.getItem("buyerZip") || "",
-      listing: localStorage.getItem("listingURL") || "",
-    };
-    setFormData(saved);
+    fetchUser();
   }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    localStorage.setItem(`buyer${name.charAt(0).toUpperCase() + name.slice(1)}`, value);
   };
 
   const handleSubmit = async (e) => {
@@ -55,9 +62,6 @@ export default function InspectPage() {
       alert("Failed to create inspection request.");
       return;
     }
-
-    localStorage.setItem("recordId", recordId);
-    localStorage.setItem("buyerEmail", formData.email);
 
     const matchRes = await fetch("/api/match-zip", {
       method: "POST",

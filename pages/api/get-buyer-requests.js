@@ -1,14 +1,25 @@
+import jwt from "jsonwebtoken";
+
 const BASE_ID = "appecuuGb7DHkki1s";
 const API_KEY = process.env.AIRTABLE_INSPECTION_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: "Missing email" });
+  const token = req.cookies?.autoviseToken;
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   try {
-    // Fetch all inspection requests with linked fields
+    const user = jwt.verify(token, JWT_SECRET);
+
+    if (user.role !== "buyer") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const email = user.email.toLowerCase();
+
+    // Fetch all requests for this buyer
     const result = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?view=Grid%20view`,
+      `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?filterByFormula=LOWER({Buyer Email})='${email}'`,
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
@@ -22,14 +33,12 @@ export default async function handler(req, res) {
       return res.status(200).json([]);
     }
 
-    // Pull out inspector IDs
+    // Resolve inspector emails (optional enrichment)
     const inspectorIds = data.records
       .map((r) => r.fields["Inspector Assigned"]?.[0])
       .filter(Boolean);
-
     const uniqueInspectorIds = [...new Set(inspectorIds)];
 
-    // Batch fetch all linked inspectors
     const inspectorMap = {};
     for (const id of uniqueInspectorIds) {
       const inspectorRes = await fetch(
@@ -44,7 +53,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Attach resolved emails
     const enriched = data.records.map((r) => {
       const inspectorId = r.fields["Inspector Assigned"]?.[0];
       return {
@@ -55,7 +63,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(enriched);
   } catch (err) {
-    console.error("❌ get-buyer-requests error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ get-buyer-requests error:", err.message);
+    res.status(401).json({ error: "Invalid or expired token" });
   }
 }

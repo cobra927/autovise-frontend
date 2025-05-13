@@ -1,25 +1,44 @@
 // pages/_app.js
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Header from "@/components/Header";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    async function verifySession() {
+      try {
+        const res = await fetch("/api/me");
+        const data = await res.json();
 
-    const role = localStorage.getItem("role");
-    const path = router.pathname;
+        if (!data.success) throw new Error();
 
-    // Route protection: redirect if user is not the correct role
-    if (path.startsWith("/buyer") && role !== "buyer") {
-      router.replace("/login");
-    } else if (path.startsWith("/freelancer") && role !== "freelancer") {
-      router.replace("/login");
+        const { role } = data.user;
+        const path = router.pathname;
+
+        // Role-based route protection
+        if (path.startsWith("/buyer") && role !== "buyer") {
+          router.replace("/wrong-role");
+        } else if (path.startsWith("/freelancer") && role !== "freelancer") {
+          router.replace("/wrong-role");
+        }
+      } catch {
+        // Fallback for unauthenticated access
+        if (!["/login", "/signup", "/how-it-works"].includes(router.pathname)) {
+          router.replace("/login");
+        }
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [router]);
+
+    verifySession();
+  }, [router.pathname]);
+
+  if (loading) return null;
 
   return (
     <>

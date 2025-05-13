@@ -1,5 +1,8 @@
+import jwt from "jsonwebtoken";
+
 const AIRTABLE_BASE_ID = "appecuuGb7DHkki1s";
 const AIRTABLE_KEY = process.env.AIRTABLE_INSPECTION_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 const AIRTABLE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/All%20Requests`;
 
 export default async function handler(req, res) {
@@ -7,61 +10,67 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { recordId, tier, inspectorId } = req.body;
+  const token = req.cookies?.autoviseToken;
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-  // Validate required fields
+  let user;
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  if (user.role !== "buyer") {
+    return res.status(403).json({ error: "Only buyers can mark payment" });
+  }
+
+  const { recordId, tier, inspectorId } = req.body;
+  const tierValue = tier || "Remote Listing Review";
+
   if (!recordId || !inspectorId) {
     return res.status(400).json({ error: "Missing required data: recordId or inspectorId" });
   }
 
-  const tierValue = tier || "Remote Listing Review"; // fallback if undefined
-
   try {
-    const updateUrl = `${AIRTABLE_URL}/${recordId}`;
-
-    const patchPayload = {
-      fields: {
-        Status: "Paid",
-        "Payment Status": "Paid",
-        "Tier Selected": tierValue,
-        "Inspector Assigned": [inspectorId],
+    // Ensure this buyer owns the record
+    const checkRes = await fetch(`${AIRTABLE_URL}?filterByFormula=AND(RECORD_ID()='${recordId}', LOWER({Buyer Email})='${user.email.toLowerCase()}')`, {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_KEY}`,
       },
-    };
+    });
+    const checkData = await checkRes.json();
+    if (!checkData.records?.length) {
+      return res.status(403).json({ error: "Unauthorized to update this record" });
+    }
 
-    // Log the payload (for development, remove in production)
-    console.log("💳 Marking paid PATCH:", JSON.stringify(patchPayload, null, 2));
-
-    const response = await fetch(updateUrl, {
+    // Proceed to mark paid
+    const updateRes = await fetch(`${AIRTABLE_URL}/${recordId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${AIRTABLE_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(patchPayload),
+      body: JSON.stringify({
+        fields: {
+          Status: "Paid",
+          "Payment Status": "Paid",
+          "Tier Selected": tierValue,
+          "Inspector Assigned": [inspectorId],
+        },
+      }),
     });
 
-    const resultText = await response.text();
-    let parsedResult;
-    try {
-      parsedResult = JSON.parse(resultText);
-    } catch {
-      parsedResult = resultText;
-    }
-
-    // Log the Airtable response (remove in production)
-    console.log("📥 Airtable response:", parsedResult);
-
-    if (!response.ok) {
+    const resultText = await updateRes.text();
+    if (!updateRes.ok) {
       return res.status(500).json({
         error: "Airtable update failed",
-        detail: parsedResult,
+        detail: resultText,
       });
     }
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    // Improved error logging
-    console.error("❌ Airtable error:", err);
+    console.error("❌ mark-paid error:", err);
     return res.status(500).json({ error: "Failed to mark as paid", detail: err.message });
   }
 }

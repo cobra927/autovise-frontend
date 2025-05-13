@@ -1,10 +1,11 @@
-const airtableBaseId = "appecuuGb7DHkki1s";
-const requestTable = "All Requests";
-const freelancerTable = "Freelancers";
-const freelanceLogicTable = "freelance_logic";
+const signupBaseId = "appxHCXtQtKJOUvnR"; // Base: Signup
+const inspectionBaseId = "appecuuGb7DHkki1s"; // Base: Inspection Requests
 
-const AIRTABLE_INSPECTION_KEY = process.env.AIRTABLE_INSPECTION_KEY;
+const freelancerSourceTable = "freelance_logic";
+const freelancerTargetTable = "Freelancers";
+
 const AIRTABLE_FREELANCER_KEY = process.env.AIRTABLE_FREELANCER_KEY;
+const AIRTABLE_INSPECTION_KEY = process.env.AIRTABLE_INSPECTION_KEY;
 const geoApiKey = process.env.GEOAPIFY_KEY;
 
 export default async function handler(req, res) {
@@ -18,19 +19,19 @@ export default async function handler(req, res) {
       `https://api.geoapify.com/v1/geocode/search?text=${buyerZip}&format=json&apiKey=${geoApiKey}`
     );
     const buyerData = await buyerRes.json();
-    const buyerCoord = buyerData.results[0];
+    const buyerCoord = buyerData.results?.[0];
     if (!buyerCoord) return res.status(400).json({ error: "Invalid buyer ZIP" });
 
     const buyerLat = buyerCoord.lat;
     const buyerLon = buyerCoord.lon;
 
-    const freelancersRes = await fetch(
-      `https://api.airtable.com/v0/appxHCXtQtKJOUvnR/${freelanceLogicTable}`,
+    const freelancerRes = await fetch(
+      `https://api.airtable.com/v0/${signupBaseId}/${freelancerSourceTable}`,
       {
         headers: { Authorization: `Bearer ${AIRTABLE_FREELANCER_KEY}` },
       }
     );
-    const freelancerData = await freelancersRes.json();
+    const freelancerData = await freelancerRes.json();
 
     const matches = [];
 
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
         `https://api.geoapify.com/v1/geocode/search?text=${zip}&format=json&apiKey=${geoApiKey}`
       );
       const locData = await locRes.json();
-      const coord = locData.results[0];
+      const coord = locData.results?.[0];
       if (!coord) continue;
 
       const distance = haversineDistance(buyerLat, buyerLon, coord.lat, coord.lon);
@@ -57,14 +58,12 @@ export default async function handler(req, res) {
 
     if (!matches.length) return res.status(200).json({ recordId, matches: [] });
 
-    // Sort all matches by distance ascending
     matches.sort((a, b) => a.distance - b.distance);
 
-    // Ensure each matched inspector exists in Freelancers
     const syncedMatches = [];
     for (const match of matches) {
       const lookupRes = await fetch(
-        `https://api.airtable.com/v0/${airtableBaseId}/${freelancerTable}?filterByFormula=LOWER({Email})='${match.email.toLowerCase()}'`,
+        `https://api.airtable.com/v0/${inspectionBaseId}/${freelancerTargetTable}?filterByFormula=LOWER({Email})='${match.email.toLowerCase()}'`,
         {
           headers: { Authorization: `Bearer ${AIRTABLE_INSPECTION_KEY}` },
         }
@@ -76,7 +75,7 @@ export default async function handler(req, res) {
         syncedMatches.push(match);
       } else {
         const createRes = await fetch(
-          `https://api.airtable.com/v0/${airtableBaseId}/${freelancerTable}`,
+          `https://api.airtable.com/v0/${inspectionBaseId}/${freelancerTargetTable}`,
           {
             method: "POST",
             headers: {
@@ -96,8 +95,6 @@ export default async function handler(req, res) {
         if (createRes.ok && created.id) {
           match.id = created.id;
           syncedMatches.push(match);
-        } else {
-          console.warn("❌ Failed to sync freelancer:", created);
         }
       }
     }

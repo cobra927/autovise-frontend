@@ -1,21 +1,33 @@
+import jwt from "jsonwebtoken";
+
 const BASE_ID = "appecuuGb7DHkki1s";
 const API_KEY = process.env.AIRTABLE_INSPECTION_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
-  const { email, role } = req.query;
+  const token = req.cookies?.autoviseToken;
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
+
+  let user;
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  const { email, role } = user;
   if (!email || !role) return res.status(400).json({ error: "Missing email or role" });
 
   try {
     if (role === "buyer") {
       const result = await fetch(
-        `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?filterByFormula=LOWER({Email})='${email.toLowerCase()}'`,
+        `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?filterByFormula=LOWER({Buyer Email})='${email.toLowerCase()}'`,
         {
           headers: { Authorization: `Bearer ${API_KEY}` },
         }
       );
       const data = await result.json();
 
-      // Expand linked inspector details
       const records = await hydrateInspectors(data.records);
       return res.status(200).json(records);
     }
@@ -37,7 +49,7 @@ export default async function handler(req, res) {
       const freelancerId = freelancer.id;
 
       const requestsRes = await fetch(
-        `https://api.airtable.com/v0/${BASE_ID}/All%20Requests?filterByFormula=ARRAYJOIN({Inspector Assigned}, ",")`,
+        `https://api.airtable.com/v0/${BASE_ID}/All%20Requests`,
         {
           headers: { Authorization: `Bearer ${API_KEY}` },
         }

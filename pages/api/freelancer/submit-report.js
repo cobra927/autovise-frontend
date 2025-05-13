@@ -16,22 +16,36 @@ export default async function handler(req, res) {
   let user;
   try {
     user = jwt.verify(token, JWT_SECRET);
+
+    if (user.role !== "freelancer") {
+      return res.status(403).json({ error: "Only freelancers can submit reports" });
+    }
+
+    const lookup = await fetch(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Freelancers?filterByFormula=LOWER({Email})='${user.email.toLowerCase()}'`,
+      {
+        headers: { Authorization: `Bearer ${AIRTABLE_KEY}` },
+      }
+    );
+
+    const data = await lookup.json();
+    const recordIdFromFreelancerBase = data.records?.[0]?.id;
+
+    if (recordIdFromFreelancerBase) {
+      user.id = recordIdFromFreelancerBase;
+      console.log("🔁 Patched user.id to:", user.id);
+    }
   } catch {
     return res.status(401).json({ error: "Invalid token" });
   }
 
-  if (user.role !== "freelancer") {
-    return res.status(403).json({ error: "Only freelancers can submit reports" });
-  }
-
-  const { recordId, notes, photos = [], status = "Submitted" } = req.body;
+  const { recordId, notes, photos = [], checklist = {} } = req.body;
 
   if (!recordId || !notes) {
     return res.status(400).json({ error: "Missing required fields: recordId or notes" });
   }
 
   try {
-    // 🔍 Validate the freelancer is assigned to this request
     const resCheck = await fetch(`${AIRTABLE_URL}/${recordId}`, {
       headers: { Authorization: `Bearer ${AIRTABLE_KEY}` },
     });
@@ -42,8 +56,25 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "You are not assigned to this inspection" });
     }
 
-    // ✅ Patch Airtable with the report
-    const patchRes = await fetch(`${AIRTABLE_URL}/${recordId}`, {
+    const tier = record.fields?.["Tier Selected"] || "";
+
+    const tierRequirements = {
+      "Remote Listing Review": ["marketAnalysis", "photoReview", "recommendation"],
+      "In-Person Inspection": ["exterior", "interior", "engine", "testDrive", "photos"],
+      "In-Person + Negotiation": ["exterior", "interior", "engine", "testDrive", "photos", "negotiation"],
+    };
+
+    const required = tierRequirements[tier] || [];
+    const missing = required.filter((key) => !checklist?.[key]);
+
+    if (missing.length) {
+      return res.status(400).json({
+        error: "Missing required checklist items",
+        missing,
+      });
+    }
+
+    const patch = await fetch(`${AIRTABLE_URL}/${recordId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${AIRTABLE_KEY}`,
@@ -51,16 +82,18 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         fields: {
+          Status: "Completed",
           "Inspection Report": notes,
           "Inspection Photos": photos,
-          Status: status,
+          "Checklist JSON": JSON.stringify(checklist),
+          "Report Submitted At": new Date().toISOString(),
         },
       }),
     });
 
-    if (!patchRes.ok) {
-      const errorText = await patchRes.text();
-      return res.status(500).json({ error: "Failed to save report", detail: errorText });
+    if (!patch.ok) {
+      const text = await patch.text();
+      return res.status(500).json({ error: "Failed to save report", detail: text });
     }
 
     return res.status(200).json({ success: true });

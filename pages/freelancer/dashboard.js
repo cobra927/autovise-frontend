@@ -4,57 +4,46 @@ export default function FreelancerDashboard() {
   const [assigned, setAssigned] = useState([]);
   const [accepted, setAccepted] = useState([]);
   const [email, setEmail] = useState(null);
-  const [reportNotes, setReportNotes] = useState("");
-  const [reportRecordId, setReportRecordId] = useState(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedEmail =
-        localStorage.getItem("freelancerEmail") ||
-        localStorage.getItem("email") ||
-        "";
-      setEmail(storedEmail.toLowerCase());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!email) return;
-
-    async function fetchJobs() {
+    async function fetchUserAndJobs() {
       try {
-        const res = await fetch(
-          `/api/get-inspection-requests?email=${email}&role=freelancer`
-        );
-        const data = await res.json();
+        const userRes = await fetch("/api/me");
+        const userData = await userRes.json();
 
-        console.log("Fetched jobs for freelancer:", data);
+        if (!userData.success || userData.user.role !== "freelancer") {
+          console.error("User not authenticated or not a freelancer");
+          return;
+        }
+
+        setEmail(userData.user.email);
+
+        const res = await fetch("/api/get-inspection-requests");
+        const data = await res.json();
 
         if (!Array.isArray(data)) {
           console.error("❌ Unexpected API response:", data);
           return;
         }
 
-        setAssigned(
-          data.filter(
-            (r) =>
-              r.fields["Status"] === "Matched" || r.fields["Status"] === "Paid"
-          )
-        );
+        setAssigned(data.filter((r) =>
+          ["Matched", "Paid"].includes(r.fields["Status"])
+        ));
         setAccepted(data.filter((r) => r.fields["Status"] === "Accepted"));
       } catch (err) {
-        console.error("Failed to load requests:", err);
+        console.error("Failed to load user or requests:", err);
       }
     }
 
-    fetchJobs();
-  }, [email]);
+    fetchUserAndJobs();
+  }, []);
 
   const acceptJob = async (recordId) => {
     try {
       const res = await fetch("/api/accept-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId, inspectorEmail: email }),
+        body: JSON.stringify({ recordId }),
       });
 
       if (res.ok) {
@@ -89,38 +78,6 @@ export default function FreelancerDashboard() {
     }
   };
 
-  const submitReport = async (recordId) => {
-    if (!reportNotes.trim()) {
-      alert("Please enter some notes.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/freelancer/submit-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recordId,
-          notes: reportNotes,
-        }),
-      });
-
-      const result = await res.json();
-      if (result.success) {
-        alert("Report submitted!");
-        setReportNotes("");
-        setReportRecordId(null);
-        window.location.reload();
-      } else {
-        console.error("Submit error:", result);
-        alert("Failed to submit report.");
-      }
-    } catch (err) {
-      console.error("Submit failed:", err);
-      alert("Unexpected error submitting report.");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 p-8">
       <h1 className="text-3xl font-bold mb-4">Freelancer Dashboard</h1>
@@ -131,7 +88,7 @@ export default function FreelancerDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
         <div className="bg-white p-4 rounded shadow text-center">
           <p className="text-4xl font-bold text-blue-800">{assigned.length}</p>
           <p className="text-sm mt-1 text-gray-600">New Assignments</p>
@@ -139,10 +96,6 @@ export default function FreelancerDashboard() {
         <div className="bg-white p-4 rounded shadow text-center">
           <p className="text-4xl font-bold text-green-700">{accepted.length}</p>
           <p className="text-sm mt-1 text-gray-600">Accepted Jobs</p>
-        </div>
-        <div className="bg-white p-4 rounded shadow text-center">
-          <p className="text-4xl font-bold text-gray-500">—</p>
-          <p className="text-sm mt-1 text-gray-600">Completed Jobs</p>
         </div>
       </div>
 
@@ -188,23 +141,13 @@ export default function FreelancerDashboard() {
                 <p><strong>Status:</strong> Accepted</p>
                 <p><strong>Tier:</strong> {r.fields["Tier Selected"]}</p>
 
-                <div className="mt-4 space-y-2">
-                  <textarea
-                    rows="4"
-                    placeholder="Write your inspection notes..."
-                    className="w-full border p-2 rounded"
-                    value={reportRecordId === r.id ? reportNotes : ""}
-                    onChange={(e) => {
-                      setReportRecordId(r.id);
-                      setReportNotes(e.target.value);
-                    }}
-                  />
-                  <button
-                    onClick={() => submitReport(r.id)}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                <div className="mt-4">
+                  <a
+                    href={`/freelancer/report?id=${r.id}`}
+                    className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                   >
                     Submit Report
-                  </button>
+                  </a>
                 </div>
               </li>
             ))}
@@ -217,6 +160,14 @@ export default function FreelancerDashboard() {
       <section>
         <h2 className="text-xl font-semibold mb-2">👤 Account</h2>
         <p className="text-gray-600">Feature coming soon: edit profile, tools, travel radius, and availability.</p>
+        <p className="mt-4">
+          <a
+            href="/freelancer/completed-reports"
+            className="text-blue-600 underline"
+          >
+            View Completed Reports
+          </a>
+        </p>
       </section>
     </div>
   );

@@ -7,18 +7,19 @@ export default function BuyerDashboard() {
   const [email, setEmail] = useState(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("buyerEmail") || localStorage.getItem("email");
-      if (stored) setEmail(stored.toLowerCase());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!email) return;
-
-    async function fetchRequests() {
+    async function fetchUserAndRequests() {
       try {
-        const res = await fetch(`/api/get-inspection-requests?email=${email}&role=buyer`);
+        const userRes = await fetch("/api/me");
+        const userData = await userRes.json();
+
+        if (!userData.success || userData.user.role !== "buyer") {
+          console.error("User not authenticated or not a buyer");
+          return;
+        }
+
+        setEmail(userData.user.email);
+
+        const res = await fetch("/api/get-inspection-requests");
         const result = await res.json();
 
         if (!Array.isArray(result)) {
@@ -32,12 +33,12 @@ export default function BuyerDashboard() {
         setMatched(result.filter((r) => r.fields["Status"] === "Accepted"));
         setDeclined(result.filter((r) => r.fields["Status"] === "Declined"));
       } catch (err) {
-        console.error("Failed to load requests:", err);
+        console.error("Failed to load user or requests:", err);
       }
     }
 
-    fetchRequests();
-  }, [email]);
+    fetchUserAndRequests();
+  }, []);
 
   const tierBadge = (tier) => (
     <span className="inline-block mt-2 px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded">
@@ -61,18 +62,9 @@ export default function BuyerDashboard() {
             {pending.map((r) => (
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Inspector:</strong> {r.inspector?.Name || "—"}</p>
                 <p><strong>Status:</strong> {r.fields["Status"]}</p>
                 <p><strong>Payment:</strong> {r.fields["Payment Status"] || "Unpaid"}</p>
                 {tierBadge(r.fields["Tier Selected"])}
-                {r.fields["Payment Status"] !== "Paid" && (
-                  <a
-                    href="/buyer/payment"
-                    className="inline-block mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  >
-                    Complete Payment
-                  </a>
-                )}
               </li>
             ))}
           </ul>
@@ -88,7 +80,6 @@ export default function BuyerDashboard() {
             {matched.map((r) => (
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Inspector:</strong> {r.inspector?.Name || "—"}</p>
                 <p><strong>Status:</strong> Accepted</p>
                 <p><strong>Payment:</strong> {r.fields["Payment Status"] || "Pending"}</p>
                 {tierBadge(r.fields["Tier Selected"])}
@@ -107,7 +98,6 @@ export default function BuyerDashboard() {
             {declined.map((r) => (
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Inspector:</strong> {r.inspector?.Name || "—"}</p>
                 <p><strong>Status:</strong> Declined</p>
                 {tierBadge(r.fields["Tier Selected"])}
               </li>

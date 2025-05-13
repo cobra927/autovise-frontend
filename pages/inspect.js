@@ -24,11 +24,10 @@ export default function InspectPage() {
           return;
         }
 
-        // Optionally preload name/email if you have them stored in Airtable
         setFormData((prev) => ({
           ...prev,
           email,
-          name: "", // preload with Airtable name if stored and available
+          name: "",
         }));
       } catch {
         router.replace("/login");
@@ -73,7 +72,8 @@ export default function InspectPage() {
     });
 
     if (matchRes.ok) {
-      router.push(`/inspect/matches?zip=${formData.zip}`);
+      // ✅ Correct routing line
+      router.push(`/inspect/matches?zip=${formData.zip}&recordId=${recordId}`);
     } else {
       alert("ZIP matching failed.");
     }

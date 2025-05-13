@@ -45,13 +45,23 @@ export default async function handler(req, res) {
 
   try {
     // ✅ Verify buyer owns the record
-    const recordCheck = await fetch(`${AIRTABLE_API_URL}?filterByFormula=AND(RECORD_ID()='${recordId}', LOWER({Buyer Email})='${user.email.toLowerCase()}')`, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_KEY}`,
-      },
+    console.log("💬 Checking ownership:", {
+      recordId,
+      email: user.email.toLowerCase(),
     });
 
+    const recordCheck = await fetch(
+      `${AIRTABLE_API_URL}?filterByFormula=AND(RECORD_ID()='${recordId}', LOWER({Buyer Email})='${user.email.toLowerCase()}')`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_KEY}`,
+        },
+      }
+    );
+
     const recordData = await recordCheck.json();
+    console.log("🧾 Record check response:", recordData);
+
     if (!recordData.records?.length) {
       return res.status(403).json({ error: "Unauthorized record access" });
     }
@@ -95,7 +105,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("❌ Stripe session error:", err.message);
+    console.error("❌ Stripe session error:", err);
     return res.status(500).json({ error: "Stripe session creation failed" });
   }
 }

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 export default function BuyerDashboard() {
   const [pending, setPending] = useState([]);
-  const [matched, setMatched] = useState([]);
+  const [inProgress, setInProgress] = useState([]);
+  const [completed, setCompleted] = useState([]);
   const [declined, setDeclined] = useState([]);
   const [email, setEmail] = useState(null);
 
@@ -28,10 +29,20 @@ export default function BuyerDashboard() {
         }
 
         setPending(result.filter((r) =>
-          r.fields["Status"] === "Matched" || r.fields["Status"] === "Paid"
+          ["Submitted", "Matched"].includes(r.fields["Status"])
         ));
-        setMatched(result.filter((r) => r.fields["Status"] === "Accepted"));
-        setDeclined(result.filter((r) => r.fields["Status"] === "Declined"));
+
+        setInProgress(result.filter((r) =>
+          r.fields["Status"] === "Accepted"
+        ));
+
+        setCompleted(result.filter((r) =>
+          r.fields["Status"] === "Completed"
+        ));
+
+        setDeclined(result.filter((r) =>
+          r.fields["Status"] === "Declined"
+        ));
       } catch (err) {
         console.error("Failed to load user or requests:", err);
       }
@@ -56,7 +67,7 @@ export default function BuyerDashboard() {
       )}
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">📬 Pending Inspector Acceptance</h2>
+        <h2 className="text-xl font-semibold mb-2">📬 Pending Requests</h2>
         {pending.length > 0 ? (
           <ul className="space-y-4">
             {pending.map((r) => (
@@ -74,34 +85,64 @@ export default function BuyerDashboard() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">✅ Accepted Requests</h2>
-        {matched.length > 0 ? (
+        <h2 className="text-xl font-semibold mb-2">🛠 In Progress</h2>
+        {inProgress.length > 0 ? (
           <ul className="space-y-4">
-            {matched.map((r) => (
+            {inProgress.map((r) => (
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Status:</strong> Accepted</p>
-                <p><strong>Payment:</strong> {r.fields["Payment Status"] || "Pending"}</p>
+                <p><strong>Status:</strong> {r.fields["Status"]}</p>
+                <p><strong>Payment:</strong> {r.fields["Payment Status"] || "Unpaid"}</p>
                 {tierBadge(r.fields["Tier Selected"])}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">You have no accepted jobs yet.</p>
+          <p className="text-gray-600">No active inspections yet.</p>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">📋 Completed Reports</h2>
-        <p className="text-gray-600 mb-2">
-          View full summaries and images of all completed inspections.
-        </p>
-        <a
-          href="/buyer/completed-reports"
-          className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          View Completed Reports
-        </a>
+        <h2 className="text-xl font-semibold mb-2">✅ Completed Reports</h2>
+        {completed.length > 0 ? (
+          <ul className="space-y-4">
+            {completed.map((r) => (
+              <li key={r.id} className="bg-white p-4 rounded shadow">
+                <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
+                <p><strong>Status:</strong> Completed</p>
+                <p><strong>Payment:</strong> {r.fields["Payment Status"] || "Unknown"}</p>
+                {tierBadge(r.fields["Tier Selected"])}
+                <div className="mt-4">
+                  <a
+                    href={`/buyer/report?id=${r.id}`}
+                    className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    View Report
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">No completed inspections yet.</p>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">❌ Declined or Unavailable</h2>
+        {declined.length > 0 ? (
+          <ul className="space-y-4">
+            {declined.map((r) => (
+              <li key={r.id} className="bg-white p-4 rounded shadow">
+                <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
+                <p><strong>Status:</strong> Declined</p>
+                {tierBadge(r.fields["Tier Selected"])}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">No declined requests.</p>
+        )}
       </section>
 
       <section>

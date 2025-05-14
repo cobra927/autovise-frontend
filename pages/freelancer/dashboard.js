@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 export default function FreelancerDashboard() {
   const [assigned, setAssigned] = useState([]);
   const [accepted, setAccepted] = useState([]);
+  const [completed, setCompleted] = useState([]);
   const [email, setEmail] = useState(null);
 
   useEffect(() => {
@@ -27,9 +28,14 @@ export default function FreelancerDashboard() {
         }
 
         setAssigned(data.filter((r) =>
-          ["Matched", "Paid"].includes(r.fields["Status"])
+          ["Matched", "Paid", "Submitted"].includes(r.fields["Status"])
         ));
-        setAccepted(data.filter((r) => r.fields["Status"] === "Accepted"));
+        setAccepted(data.filter((r) =>
+          r.fields["Status"] === "Accepted"
+        ));
+        setCompleted(data.filter((r) =>
+          r.fields["Status"] === "Completed"
+        ));
       } catch (err) {
         console.error("Failed to load user or requests:", err);
       }
@@ -88,19 +94,23 @@ export default function FreelancerDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <div className="bg-white p-4 rounded shadow text-center">
           <p className="text-4xl font-bold text-blue-800">{assigned.length}</p>
           <p className="text-sm mt-1 text-gray-600">New Assignments</p>
         </div>
         <div className="bg-white p-4 rounded shadow text-center">
-          <p className="text-4xl font-bold text-green-700">{accepted.length}</p>
-          <p className="text-sm mt-1 text-gray-600">Accepted Jobs</p>
+          <p className="text-4xl font-bold text-yellow-600">{accepted.length}</p>
+          <p className="text-sm mt-1 text-gray-600">In Progress</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="text-4xl font-bold text-green-700">{completed.length}</p>
+          <p className="text-sm mt-1 text-gray-600">Completed</p>
         </div>
       </div>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">📬 New Inspection Requests</h2>
+        <h2 className="text-xl font-semibold mb-2">📬 Assigned to You</h2>
         {assigned.length > 0 ? (
           <ul className="space-y-4">
             {assigned.map((r) => (
@@ -127,20 +137,19 @@ export default function FreelancerDashboard() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">No new requests assigned to you yet.</p>
+          <p className="text-gray-600">No pending assignments yet.</p>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">✅ Accepted Jobs</h2>
+        <h2 className="text-xl font-semibold mb-2">🛠 Accepted Jobs</h2>
         {accepted.length > 0 ? (
           <ul className="space-y-4">
             {accepted.map((r) => (
               <li key={r.id} className="bg-white p-4 rounded shadow">
                 <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Status:</strong> Accepted</p>
+                <p><strong>Status:</strong> {r.fields["Status"]}</p>
                 <p><strong>Tier:</strong> {r.fields["Tier Selected"]}</p>
-
                 <div className="mt-4">
                   <a
                     href={`/freelancer/report?id=${r.id}`}
@@ -153,21 +162,25 @@ export default function FreelancerDashboard() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-600">You haven't accepted any jobs yet.</p>
+          <p className="text-gray-600">No active jobs yet.</p>
         )}
       </section>
 
-      <section>
-        <h2 className="text-xl font-semibold mb-2">👤 Account</h2>
-        <p className="text-gray-600">Feature coming soon: edit profile, tools, travel radius, and availability.</p>
-        <p className="mt-4">
-          <a
-            href="/freelancer/completed-reports"
-            className="text-blue-600 underline"
-          >
-            View Completed Reports
-          </a>
-        </p>
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">✅ Completed Reports</h2>
+        {completed.length > 0 ? (
+          <ul className="space-y-4">
+            {completed.map((r) => (
+              <li key={r.id} className="bg-white p-4 rounded shadow">
+                <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
+                <p><strong>Status:</strong> Completed</p>
+                <p><strong>Tier:</strong> {r.fields["Tier Selected"]}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-600">No completed reports yet.</p>
+        )}
       </section>
     </div>
   );

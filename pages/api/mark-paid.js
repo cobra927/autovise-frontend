@@ -32,35 +32,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Ensure this buyer owns the record
     const checkRes = await fetch(`${AIRTABLE_URL}?filterByFormula=AND(RECORD_ID()='${recordId}', LOWER({Buyer Email})='${user.email.toLowerCase()}')`, {
-      headers: {
-        Authorization: `Bearer ${AIRTABLE_KEY}`,
-      },
+      headers: { Authorization: `Bearer ${AIRTABLE_KEY}` },
     });
     const checkData = await checkRes.json();
     if (!checkData.records?.length) {
       return res.status(403).json({ error: "Unauthorized to update this record" });
     }
 
-    // Proceed to mark paid
+    const updateFields = {
+      "Payment Status": "Paid",
+      "Tier Selected": tierValue,
+    };
+
+    if (inspectorId) {
+      updateFields["Inspector Assigned"] = [inspectorId];
+    }
+
+    console.log("📦 PATCH fields:", updateFields);
+
     const updateRes = await fetch(`${AIRTABLE_URL}/${recordId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${AIRTABLE_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        fields: {
-          Status: "Paid",
-          "Payment Status": "Paid",
-          "Tier Selected": tierValue,
-          "Inspector Assigned": [inspectorId],
-        },
-      }),
+      body: JSON.stringify({ fields: updateFields }),
     });
 
     const resultText = await updateRes.text();
+    console.log("🔁 Airtable response:", resultText);
+
     if (!updateRes.ok) {
       return res.status(500).json({
         error: "Airtable update failed",

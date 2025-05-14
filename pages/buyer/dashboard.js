@@ -92,20 +92,16 @@ export default function BuyerDashboard() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">❌ Declined Requests</h2>
-        {declined.length > 0 ? (
-          <ul className="space-y-4">
-            {declined.map((r) => (
-              <li key={r.id} className="bg-white p-4 rounded shadow">
-                <p><strong>Listing:</strong> {r.fields["Listing"]}</p>
-                <p><strong>Status:</strong> Declined</p>
-                {tierBadge(r.fields["Tier Selected"])}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-600">No declined requests.</p>
-        )}
+        <h2 className="text-xl font-semibold mb-2">📋 Completed Reports</h2>
+        <p className="text-gray-600 mb-2">
+          View full summaries and images of all completed inspections.
+        </p>
+        <a
+          href="/buyer/completed-reports"
+          className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          View Completed Reports
+        </a>
       </section>
 
       <section>

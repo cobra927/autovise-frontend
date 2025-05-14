@@ -29,13 +29,11 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle completed payment events
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const sessionId = session.id;
 
     try {
-      // Look up record with matching Checkout Session ID
       const search = await fetch(`${AIRTABLE_API_URL}?filterByFormula={Checkout Session ID}='${sessionId}'`, {
         headers: { Authorization: `Bearer ${AIRTABLE_KEY}` },
       });
@@ -44,23 +42,28 @@ export default async function handler(req, res) {
       const record = data.records?.[0];
       if (!record) throw new Error("No matching Airtable record found");
 
+      const fieldsToUpdate = {
+        "Payment Status": "Confirmed via Webhook",
+        "Tier Selected": session.metadata?.tier || "Unknown",
+        "Inspector Assigned": session.metadata?.inspectorId ? [session.metadata.inspectorId] : [],
+      };
+
+      console.log("🔧 PATCH fields:", fieldsToUpdate);
+
       const updateRes = await fetch(`${AIRTABLE_API_URL}/${record.id}`, {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${AIRTABLE_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          fields: {
-            Status: "Paid",
-            "Payment Status": "Confirmed via Webhook",
-          },
-        }),
+        body: JSON.stringify({ fields: fieldsToUpdate }),
       });
 
+      const resultText = await updateRes.text();
+      console.log("🔁 Airtable PATCH response:", resultText);
+
       if (!updateRes.ok) {
-        const errText = await updateRes.text();
-        throw new Error(`Airtable update failed: ${errText}`);
+        throw new Error(`Airtable update failed: ${resultText}`);
       }
 
       console.log(`✅ Webhook confirmed payment for: ${record.id}`);

@@ -43,7 +43,7 @@ export default function FreelancerDashboard() {
       const res = await fetch("/api/accept-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId }),
+        body: JSON.stringify({ recordId, inspectorEmail: email }),
       });
 
       if (res.ok) {

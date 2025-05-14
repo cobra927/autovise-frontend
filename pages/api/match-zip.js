@@ -1,5 +1,5 @@
-const signupBaseId = "appxHCXtQtKJOUvnR"; // Base: Signup
-const inspectionBaseId = "appecuuGb7DHkki1s"; // Base: Inspection Requests
+const signupBaseId = "appxHCXtQtKJOUvnR";
+const inspectionBaseId = "appecuuGb7DHkki1s";
 
 const freelancerSourceTable = "freelance_logic";
 const freelancerTargetTable = "Freelancers";
@@ -98,6 +98,25 @@ export default async function handler(req, res) {
         }
       }
     }
+
+    // ✅ Write match metadata back to All Requests
+    const updateFields = {
+      "Matched ZIPs": matches.map(m => m.zip).join(", "),
+      "Match Distances": matches.map(m => `${m.zip}: ${m.distance}mi`).join(", "),
+    };
+
+    if (syncedMatches.length) {
+      updateFields["Inspector Assigned"] = [syncedMatches[0].id];
+    }
+
+    await fetch(`https://api.airtable.com/v0/${inspectionBaseId}/All%20Requests/${recordId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_INSPECTION_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: updateFields }),
+    });
 
     return res.status(200).json({ recordId, matches: syncedMatches });
   } catch (err) {
